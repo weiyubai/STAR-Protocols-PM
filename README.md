@@ -152,9 +152,9 @@ table(log_rank_p<0.05)
 ```
 # Import the gene set of interest, only the gene symbols are needed
 ```{r}
-Sc_TIME_Diff<- read.table("./diff1.csv", sep = ",",header = T, row.names = 1)
+Sc_TIME_Diff<- read.table("./data/diff1.csv", sep = ",",header = T, row.names = 1)
 Sc_TIME_Diff <- rownames(Sc_TIME_Diff)
-hsa04979_diff<- read.table("./diff2.csv",sep = ",",header = T,row.names = 1)
+hsa04979_diff<- read.table("./data/diff2.csv",sep = ",",header = T,row.names = 1)
 hsa04979_diff <- rownames(hsa04979_diff)
 all <- c(Sc_TIME_Diff, hsa04979_diff)
 cox005 = rownames(cox_results)[cox_results$p<0.05];length(cox005)
