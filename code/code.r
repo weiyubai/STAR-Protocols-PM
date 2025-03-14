@@ -4,16 +4,23 @@
 
 proj <- "TCGA-LIHC"
 
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".htseq_counts.tsv.gz"),destfile = paste0(proj,".htseq_counts.tsv.gz"))
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".GDC_phenotype.tsv.gz"),destfile = paste0(proj,".GDC_phenotype.tsv.gz"))
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".survival.tsv"),destfile = paste0(proj,".survival.tsv"))
+library(httr)
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".star_counts.tsv.gz"),
+                write_disk( paste0(proj,".star_counts.tsv.gz"), overwrite = TRUE),progress())
+
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".clinical.tsv.gz"),
+    write_disk( paste0(proj,".clinical.tsv.gz"), overwrite = TRUE),progress())
+
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".survival.tsv"),
+    write_disk( paste0(proj,".survival.tsv"), overwrite = TRUE),progress())
+
 
 
 ## Import expression matrix and clinical data
 
-clinical = read.delim(paste0(proj,".GDC_phenotype.tsv.gz"),fill = T,header = T,sep = "\t")
+clinical = read.delim(paste0(proj,".clinical.tsv.gz"),fill = T,header = T,sep = "\t")
 surv = read.delim(paste0(proj,".survival.tsv"),header = T)
-dat = read.table(paste0(proj,".htseq_counts.tsv.gz"),check.names = F,row.names = 1,header = T)
+dat = read.table(paste0(proj,".star_counts.tsv.gz"),check.names = F,row.names = 1,header = T)
 
 
 ## Organize the expression matrix and take the logarithm of counts.
