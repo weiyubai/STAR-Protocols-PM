@@ -10,10 +10,23 @@ date: "2024-5-7"
 ```{r}
 proj <- "TCGA-LIHC"
 
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".htseq_counts.tsv.gz"),destfile = paste0(proj,".htseq_counts.tsv.gz"))
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".GDC_phenotype.tsv.gz"),destfile = paste0(proj,".GDC_phenotype.tsv.gz"))
-download.file(url = paste0("https://gdc.xenahubs.net/download/",proj, ".survival.tsv"),destfile = paste0(proj,".survival.tsv"))
+library(httr)
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".star_counts.tsv.gz"),
+                write_disk( paste0(proj,".star_counts.tsv.gz"), overwrite = TRUE),progress())
 
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".clinical.tsv.gz"),
+    write_disk( paste0(proj,".clinical.tsv.gz"), overwrite = TRUE),progress())
+
+GET(url = paste0("https://gdc-hub.s3.us-east-1.amazonaws.com/download/",proj, ".survival.tsv"),
+    write_disk( paste0(proj,".survival.tsv"), overwrite = TRUE),progress())
+
+
+
+clinical = read.delim(paste0(proj,".clinical.tsv.gz"),fill = T,header = T,sep = "\t")
+surv = read.delim(paste0(proj,".survival.tsv"),header = T)
+clinical[1:4,1:4]
+head(surv)
+dat = read.table(paste0(proj,".star_counts.tsv.gz"),check.names = F,row.names = 1,header = T)
 ```
 
 ## Import expression matrix and clinical data
@@ -40,17 +53,17 @@ exp = trans_array(exp,ids = re,from = "ENSEMBL",to = "SYMBOL")
 ```{r }
 exp = exp[apply(exp, 1, function(x) sum(x > 0) > 0.5*ncol(exp)), ]
 ```
-### Differentiation and grouping of cancer and adjacent non-cancer samples were performed based on barcodes.
+## Differentiation and grouping of cancer and adjacent non-cancer samples were performed based on barcodes.
 ```{r }
 Group = ifelse(as.numeric(str_sub(colnames(exp),14,15)) < 10,'tumor','normal')
 Group = factor(Group,levels = c("normal","tumor"))
 table(Group)# View the number of each group
 ```
-### Filter out normal samples, leave only cancer samples, and convert them to logCPM format
+## Filter out normal samples, leave only cancer samples, and convert them to logCPM format
 ```{r }
 exprSet=log2(edgeR::cpm(exp[,Group=='tumor'])+1)
 ```
-### Integration of clinical data.
+## Integration of clinical data.
 ```{r}
 library(dplyr)
 meta <- left_join(surv,clinical,by = c("sample"= "submitter_id.samples"))
@@ -92,7 +105,7 @@ meta = meta[s,]
 
 identical(rownames(meta),colnames(exprSet))
 ```
-# Multivariate Cox regression analysis
+## Multivariate Cox regression analysis
 ```{r}
 library(survival)
 coxfile = paste0(proj,"_cox.Rdata")
@@ -129,7 +142,7 @@ table(cox_results$p<0.01)
 table(cox_results$p<0.05)
 ```
 
-# Logrank test analysis
+## Logrank test analysis
 ```{r}
 
 logrankfile = paste0(proj,"_log_rank_p.Rdata")
@@ -150,7 +163,7 @@ table(log_rank_p<0.01)
 # Count the number of genes with p-values less than 0.05
 table(log_rank_p<0.05)
 ```
-# Import the gene set of interest, only the gene symbols are needed
+## Import the gene set of interest, only the gene symbols are needed
 ```{r}
 Sc_TIME_Diff<- read.table("./data/diff1.csv", sep = ",",header = T, row.names = 1)
 Sc_TIME_Diff <- rownames(Sc_TIME_Diff)
@@ -160,7 +173,7 @@ all <- c(Sc_TIME_Diff, hsa04979_diff)
 cox005 = rownames(cox_results)[cox_results$p<0.05];length(cox005)
 model_list <- intersect(all,cox005)
 ```
-# Construct a prognostic model.
+## Construct a prognostic model.
 ```{r}
 
 exprS = exprSet[model_list,]
@@ -210,7 +223,7 @@ model=coxph(formula = Surv(time, event) ~ HSPA8 + S100A16 + DNAJB4 + CD69 + CALM
 ggforest(model,refLabel = "reference",data = dat1)
 
 ```
-# Calculate the risk score based on the established prognostic model.
+## Calculate the risk score based on the established prognostic model.
 ```{r}
 k = dat1[,names(model$coefficients)]
 RiskScore <- apply(dat1[,names(model$coefficients)],1,function(k){sum(model$coefficients*k)})
@@ -220,7 +233,7 @@ risk_dat1$Risk= ifelse(risk_dat1$RiskScore>= median(risk_dat1$RiskScor),'high','
 fit_1 <- survfit(Surv(time,event)~risk_dat1$Risk,  data = risk_dat1) 
 ggsurvplot(fit_1,pval = TRUE,risk.table = TRUE,palette = "hue")
 ```
-# Calculate the model’s AUC values at 1 year, 3 years, and 5 years, and draw the ROC curve.
+## Calculate the model’s AUC values at 1 year, 3 years, and 5 years, and draw the ROC curve.
 ```{r}
 library(survivalROC)
 cutoff <- 365
@@ -255,7 +268,7 @@ legend(0.45,0.3,c(paste("AUC at 1 year:",round(all_1$AUC,3)),
 paste("AUC at 3 year:",round(all_3$AUC,3)),paste("AUC at 5 year:",round(all_5$AUC,3))),
 x.intersp=1, y.intersp=0.8, lty= 1 ,lwd= 4,col=c("#BC3C29FF","#0072B5FF",'#E18727FF'),bty = "n", seg.len=1,cex=0.8)
 ```
-# Building a website
+## Building a website
 ```{r}
 library(DynNom)
 DynNom(model, dat2)
@@ -293,7 +306,7 @@ DNbuilder(nomo)
 DynNom(nomo, dat2)
 ```
 
-# Predicting drug sensitivity. 
+## Predicting drug sensitivity. 
 ```{r}
 
 
